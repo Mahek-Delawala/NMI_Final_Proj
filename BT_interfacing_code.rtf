@@ -1,0 +1,45 @@
+{\rtf1\ansi\ansicpg1252\cocoartf2639
+\cocoatextscaling0\cocoaplatform0{\fonttbl\f0\fswiss\fcharset0 Helvetica;}
+{\colortbl;\red255\green255\blue255;}
+{\*\expandedcolortbl;;}
+\margl1440\margr1440\vieww28600\viewh18000\viewkind0
+\pard\tx720\tx1440\tx2160\tx2880\tx3600\tx4320\tx5040\tx5760\tx6480\tx7200\tx7920\tx8640\pardirnatural\partightenfactor0
+
+\f0\fs24 \cf0 #include <Softwareseriel.h>\
+\
+SoftwareSerial Bluetooth(3, 2); // TX II RX\
+\
+void setup()\
+\{\
+Serial.begin (9600) ;\
+Serial println("HC-05 AT Commands\'94);\
+Serial println("Function                |Command           |Response            |Parameter\'94);\
+Serial println("Test                    |AT                |OK                  |None") ;\
+Serial println("Name                    |AT+NAME?          |+NAME:HC-05, OK     |HC-05 (Default)");\
+Serial println("Password                |AT+PSWD           |+PSWD:1234, OK      |1234 (Default)");\
+Serial println("Change Nene             |AT+NAME = <name>  |OK                  |None");\
+Serial println("Change Password         |AT+PSWD = <pswd>  |OK                  |None");\
+Serial println("UART                    |AT+UART?          |+UART:38400,0,0     |38400 (Default");\
+Serial printin(\'93Connection mode         |AT+CMODE?         |+CMOD:<cmod>        |0 (Default)");\
+Serial println("Connection mode set     |AT+HCMODE=<cmode> |Ok.                 |(0 (Connect to a specified address) >> (1 (Connect to any available address))");\
+Serial printcln("Find Address           |AT+ADDR?          |+ADDR:<addr>, OK    |None");\
+Serial printcln("Comnect to Address     |AT+BIND=<addr>    |OK                  |Replace the : with,");\
+Serial.println("Reset Device            |AT+RESET          |OK                  |None");\
+Serial.println("Restore Factory Default |AT+ORGL           |OK                  |None") ;\
+Serial.printcln("");\
+Serial. princin("Entex AT commands to start:");\
+Bluetooth. begin(38400); // HC-05 default speed in AT commend node\
+\}\
+\
+void Loop()\
+\{\
+\
+  //Read from HC-05 and send data to the Arduino Serial Monitor\
+  if (Bluetooth. availabie())\
+    Serial.write(Bluetooth.read());\
+\
+  //Read from Arduino Serial Monitor and send it to the HC-05\
+  if (Serial.available())\
+    Bluetooth.write(Serial.read());\
+\}\
+}

@@ -1,0 +1,210 @@
+{\rtf1\ansi\ansicpg1252\cocoartf2639
+\cocoatextscaling0\cocoaplatform0{\fonttbl\f0\fswiss\fcharset0 Helvetica;}
+{\colortbl;\red255\green255\blue255;}
+{\*\expandedcolortbl;;}
+\margl1440\margr1440\vieww11520\viewh8400\viewkind0
+\pard\tx720\tx1440\tx2160\tx2880\tx3600\tx4320\tx5040\tx5760\tx6480\tx7200\tx7920\tx8640\pardirnatural\partightenfactor0
+
+\f0\fs24 \cf0 #define RED_LED 8 \
+#define GREEN_LED 9 \
+#define BLUE_LED 10 \
+\
+const int emgPin = A0;           // Analog pin for EMG signal\
+\
+const uint16_t samplingPeriod = 1000; // Sampling period in microseconds\
+\
+const uint8_t lowPassCutoff = 20; \
+const uint16_t highPassCutoff = 500; // Cutoff frequency of the low-pass filter in Hz\
+\
+const float lowPassRC = 1.0 / (2.0 * 3.14159 * lowPassCutoff);   // Time constant of the low-pass filter\
+const float highPassRC = 1.0 / (2.0 * 3.14159 * highPassCutoff);  // Time constant of the high-pass filter\
+\
+const float dt = samplingPeriod / 1000000.0;             // Time interval between samples in seconds\
+\
+float filteredValue = 0.0;       // Filtered EMG signal value\
+\
+const uint8_t lower_bound = 0;\
+const uint16_t upper_bound = 4095;\
+\
+// Sample size of 40 average calculation\
+\
+\
+const int numSamples = 40; \
+float sample_array[numSamples]; \
+\
+uint8_t sample_index = 0; \
+\
+uint16_t previous_RMS = 0;\
+\
+uint16_t rectified_slope; //final output variable\
+\
+unsigned long currentMillis = 0;\
+unsigned long previousMillis = 0; \
+\
+//setup filter value \
+float x[] = \{0, 0, 0\};\
+float y[] = \{0, 0, 0\};\
+\
+void setup() \{\
+  Serial.begin(115200);\
+  //Serial.setPlotYRange(0, 5000);\
+\
+  // Configure Timer1\
+  noInterrupts();   // Disable interrupts\
+  TCCR1A = 0;       // Clear Timer1 control registers\
+  TCCR1B = 0;\
+  TCNT1 = 0;        // Set Timer1 counter to 0\
+  OCR1A = 16000000/(10*8);    // Set compare match value (16MHz / (????Hz * 8) - 1) 1000Hz\
+  //OCR1A = 16000000/(200*8);    // Set compare match value (16MHz / (????Hz * 8) - 1) 50Hz\
+  \
+  TCCR1B |= (1 << WGM12);   // Configure Timer1 for CTC mode\
+  TCCR1B |= (1 << CS11);    // Set prescaler to 8\
+  TIMSK1 |= (1 << OCIE1A);  // Enable Timer1 compare match interrupt\
+  interrupts();     // Enable interrupts\
+\
+\
+  //setup LED \
+  pinMode(RED_LED, OUTPUT);\
+  pinMode(BLUE_LED, OUTPUT); \
+  pinMode(GREEN_LED, OUTPUT);\
+\}\
+\
+void loop() \{\
+  // Other code or tasks can be performed here, independent of the EMG signal reading\
+  // Timer should do everything\
+  // LEDLogic goes to main loop()\
+  unsigned long currentMillis = millis(); \
+  \
+  if (rectified_slope > 220) \{\
+    digitalWrite(RED_LED, HIGH);\
+    currentMillis = millis(); \
+  \}\
+  if (rectified_slope > 500) \{\
+    digitalWrite(GREEN_LED, HIGH);\
+    currentMillis = millis(); \
+  \}\
+  if (rectified_slope > 700) \{\
+    digitalWrite(BLUE_LED, HIGH);\
+    currentMillis = millis(); \
+  \}\
+  else \{\
+    if (currentMillis - previousMillis > 2500) \{  // turn on for 1000ms, after that, turn off\
+      previousMillis = currentMillis; \
+      digitalWrite(RED_LED, LOW);  \
+      digitalWrite(BLUE_LED, LOW); \
+      digitalWrite(GREEN_LED, LOW); \
+  \}\
+ \}\
+\}\
+\
+\
+float rectifySignal(float a[], int size) \{\
+  float sum = 0.0;\
+  for (int i = 0; i < size; i++) \{\
+    sum += a[i];  // Calculate the sum of all values\
+  \}\
+  float average = sum / size;  // Calculate the average value\
+  \
+  float rectified_val[size];\
+  float total_sum_Val = 0.0;\
+\
+  for (int i = 0; i < size; i++) \{\
+    float new_val = a[i] - average;  // Subtract the average value from each input value\
+    float rectified_Val = abs(new_val);  // Take the absolute value of the new value\
+    rectified_val[i] = rectified_Val;\
+    total_sum_Val += rectified_Val;  // Calculate the sum of rectified values\
+  \}\
+  \
+  return total_sum_Val;\
+\}\
+\
+\
+float returnRMS(float a[], int size) \{\
+  float sum = 0.0;\
+  for (int i = 0; i < size; i++) \{\
+    sum += a[i] * a[i]; // Calculate the sum of squares of all values\
+  \}\
+  float averageSquare = sum / size; // Calculate the average of squares\
+  \
+  //Serial.println("This is averageSquare: " + String(averageSquare)); \
+\
+  float rmsValues[size];\
+  float sumRMS = 0.0;\
+\
+  for (int i = 0; i < size; i++) \{\
+    float rmsVal = sqrt(abs(a[i] * a[i] - averageSquare)); // Calculate the RMS value\
+    rmsValues[i] = rmsVal;\
+    sumRMS += rmsVal; // Accumulate the RMS values\
+  \}\
+\
+  return sumRMS;\
+\}\
+\
+\
+void readEMG() \{\
+  // Read analog EMG signal\
+  int emgValue = analogRead(emgPin);\
+\
+  // Apply bandpass filter\
+  //float highPassRC = 1.0 / (2.0 * 3.14159 * lowPassCutoff);   // Time constant of the high-pass filter (20Hz)\
+  //float lowPassRC = 1.0 / (2.0 * 3.14159 * highPassCutoff);   // Time constant of the low-pass filter (500Hz)\
+  //float highPassFilteredValue = (filteredValue * (1.0 - highPassRC * dt) + emgValue * highPassRC * dt);\
+  //filteredValue = (filteredValue * (1.0 - lowPassRC * dt) + highPassFilteredValue * lowPassRC * dt);\
+\
+  // First order low pass filter \
+  // y[n] = (1 - \uc0\u945 ) * y[n-1] + \u945  * x[n]\
+  // First order high pass filter \
+  // y[n] = \uc0\u945  * (y[n-1] + x[n] - x[n-1])\
+\
+  // Display raw and filtered values on serial plotter\
+\
+  x[0] = emgValue;\
+\
+  // (second order Butterworth example)\
+  \
+  float b[] = \{0.09763107, 0.19526215, 0.09763107\};\
+  float a[] = \{1.0, -0.94280904, 0.33333333\};\
+  \
+  y[0] = b[0] * x[0] + b[1] * x[1] + b[2] * x[2] - a[1] * y[1] - a[2] * y[2];\
+\
+  for(int i = 1; i >= 0; i--)\{\
+    x[i+1] = x[i]; // store xi\
+    y[i+1] = y[i]; // store yi\
+  \}\
+\
+  filteredValue = y[0]; \
+\
+  Serial.println(emgValue); \
+  Serial.print(",");\
+  Serial.println(filteredValue); \
+  \
+  sample_array[sample_index] = filteredValue; \
+\
+  sample_index++;\
+  //Serial.println("This is sample_index: " + String(sample_index));\
+ \
+  if (sample_index == numSamples) \{\
+    \
+    //int rectified_Sum = rectifySignal(sample_array, numSamples);\
+    //Serial.println("This is rectified sum: " + String(rectified_Sum));\
+    uint16_t sumRMS = returnRMS(sample_array, numSamples); \
+    \
+    int slope = sumRMS - previous_RMS; \
+\
+    rectified_slope = abs(slope);\
+\
+    //Serial.println("This is sum_RMS Slope: " + String(slope)); \
+    Serial.println("This is rectified sum_RMS Slope: " + String(rectified_slope)); \
+\
+    previous_RMS = sumRMS;  \
+    //Serial.println("This is rectified_Sum: " + String(rectified_Sum));     \
+    //Serial.println(",");\
+    //Serial.println("This is sum_RMS: " + String(sumRMS)); \
+    sample_index = 0; \
+  \}\
+\}\
+\
+//Timer1 compare match interrupt handler\
+ISR(TIMER1_COMPA_vect) \{\
+  readEMG();  \
+\}}
